@@ -1,5 +1,5 @@
 # Minecraft-MultiBlock-Custom-Texture-Pack
-Make your custom multiblock textures! Supports 2*2*2, 1*2*1, and above!
+Make your custom multiblock textures! Supports 2 by 2 by 2, 1 by 2 by 1, and above!
 
 # Multi-Block Texture Studio 🎨⛏️
 
@@ -17,8 +17,8 @@ This studio allows you to design large, multi-block structures (like a 1x2 Vendi
 
 ## 🚀 How to Use the Studio
 
-1. Clone this repository or simply download the `index.html` file.
-2. Open `index.html` in any modern web browser (Chrome, Firefox, Edge, Safari).
+1. Clone this repository or simply download the `MultiBlock_Custom_Texture_Pack_UI_v1.0.html` file.
+2. Open `MultiBlock_Custom_Texture_Pack_UI_v1.0.html` in any modern web browser (Chrome, Firefox, Edge, Safari).
 3. Set your dimensions (Width, Height, Depth).
 4. Upload your 2D textures (or draw them in the Pixel Studio). 
 5. Configure the interactive blocks you want hidden inside.
