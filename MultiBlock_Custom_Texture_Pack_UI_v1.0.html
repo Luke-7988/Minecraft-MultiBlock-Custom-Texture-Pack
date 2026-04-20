@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Multi-Block Texture Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; background: #1e1e1e; color: white; padding: 20px; }
+  .container { display: flex; gap: 20px; max-width: 1100px; margin: auto; align-items: flex-start; flex-wrap: wrap; }
+  .card { background: #2d2d2d; padding: 25px; border-radius: 8px; flex: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.5); min-width: 400px; }
+  h2 { margin-top: 0; text-align: center; border-bottom: 1px solid #444; padding-bottom: 15px; color: #4CAF50; }
+  label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; font-size: 14px; color: #eee; }
+  input, select { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #444; background: #111; color: white; box-sizing: border-box; }
+  input:disabled { background: #1a1a1a !important; color: #555 !important; border-color: #333 !important; cursor: not-allowed; }
+  input[type="color"] { padding: 0; width: 40px; height: 35px; cursor: pointer; background: transparent; vertical-align: middle; border: none; }
+  .row { display: flex; gap: 10px; }
+  button { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+  
+  .btn-add { background: #2196F3; color: white; width: 100%; padding: 15px; margin-top: 25px; font-size: 16px; box-shadow: 0 4px 0 #1565C0; }
+  .btn-add:hover { background: #1E88E5; transform: translateY(2px); box-shadow: 0 2px 0 #1565C0; }
+  .btn-gen { background: #4CAF50; color: white; width: 100%; padding: 15px; margin-top: 20px; font-size: 18px; box-shadow: 0 4px 0 #2E7D32; }
+  .btn-gen:hover { background: #43A047; transform: translateY(2px); box-shadow: 0 2px 0 #2E7D32; }
+  .btn-danger { background: #f44336; color: white; }
+  .btn-danger:hover { background: #d32f2f; }
+  .btn-small { padding: 6px 10px; font-size: 13px; background: #555; color: white; }
+  .btn-small:hover { background: #777; }
+  
+  .note { font-size: 12px; color: #aaa; margin-top: 3px; display: block; }
+  
+  #itemList { list-style: none; padding: 0; margin-top: 20px; }
+  #itemList li { background: #111; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 5px solid #4CAF50; display: flex; justify-content: space-between; align-items: center; }
+  .remove-btn { color: #ff5252; cursor: pointer; font-weight: bold; font-size: 20px; padding: 5px; background: none; }
+  .remove-btn:hover { color: #ff1744; }
+  
+  .grid-box { background: #111; padding: 15px; border-radius: 6px; margin-top: 10px; max-height: 200px; overflow-y: auto; border: 1px solid #444; }
+  .grid-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #222; }
+  .grid-row label { margin: 0; width: 100px; font-size: 13px; color: #ccc;}
+  .grid-row input { margin: 0; width: calc(100% - 110px); padding: 8px; }
+  .cmd-box { background: #000; color: #a4bdfc; border: 1px solid #444; font-family: monospace; font-size: 13px; cursor: text; }
+
+  /* Table styling */
+  .config-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+  .config-table th { padding: 10px; border-bottom: 2px solid #4CAF50; background: #222; position: sticky; top: 0; z-index: 1;}
+  .config-table td { padding: 8px; border-bottom: 1px solid #333; }
+  .config-table tr:hover { background: #1a1a1a; }
+  .config-table input[type="text"] { padding: 6px; margin: 0; font-size: 13px; }
+
+  /* Textures Grid */
+  .texture-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .tex-box { background: #111; border: 2px dashed #555; border-radius: 6px; height: 80px; display: flex; justify-content: center; align-items: center; cursor: pointer; background-size: cover; background-position: center; background-repeat: no-repeat; image-rendering: pixelated; color: #aaa; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px black; transition: 0.2s; }
+  .tex-box:hover { border-color: #4CAF50; color: white; }
+
+  /* 3D Preview */
+  .preview-container { width: 100%; height: 350px; perspective: 1000px; display: flex; justify-content: center; align-items: center; background: #111; border: 2px solid #444; border-radius: 8px; cursor: grab; overflow: hidden; margin-top: 10px; }
+  .preview-container:active { cursor: grabbing; }
+  .cube { position: relative; transform-style: preserve-3d; transform: rotateX(-20deg) rotateY(-45deg); }
+  .face { position: absolute; left: 50%; top: 50%; background: #333; /* border: 1px solid #000; */ background-size: 100% 100%; background-position: center; image-rendering: pixelated; display: flex; justify-content: center; align-items: center; color: rgba(255,255,255,0.3); font-weight: bold; user-select: none; }
+  .face::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .show-grid .face::after { background-image: linear-gradient(to right, gold 1px, transparent 1px), linear-gradient(to bottom, gold 1px, transparent 1px); background-size: var(--grid-size) var(--grid-size); opacity: 0.3; }
+
+  .hl-face {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--grid-size);
+    height: var(--grid-size);
+    background: rgba(76, 175, 80, 0.4);
+    box-shadow: inset 0 0 10px #4CAF50;
+    border: 2px solid #4CAF50;
+    pointer-events: none;
+  }
+
+  .face.face-highlight {
+    box-shadow: inset 0 0 15px #fff, 0 0 10px #4CAF50;
+    outline: 2px solid #4CAF50;
+  }
+
+  /* Pixel Studio Modal */
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
+  .modal-content { text-align: center; }
+  
+  #pixelStudio { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; z-index: 200; overflow: auto; }
+  .toolbar { display: flex; gap: 10px; justify-content: center; align-items: center; margin-bottom: 15px; flex-wrap: wrap; background: #111; padding: 15px; border-radius: 6px; }
+  .canvas-wrapper { overflow: auto; max-height: 500px; max-width: 100%; border: 2px solid #555; margin: 0 auto; position: relative; display: inline-block; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23444"/><rect x="10" y="10" width="10" height="10" fill="%23444"/><rect x="10" width="10" height="10" fill="%23555"/><rect y="10" width="10" height="10" fill="%23555"/></svg>'); }
+  .canvas-container { position: relative; display: inline-block; line-height: 0; }
+  #studioCanvas { display: block; width: 512px; height: 512px; image-rendering: pixelated; cursor: crosshair; }
+  #gridOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background-image: linear-gradient(to right, rgba(0,0,0,0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.15) 1px, transparent 1px); display: none; }
+  .tool-active { background: #1E88E5 !important; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <h2>1. Design Multi-Block Texture</h2>
+    
+    <label>Texture Name (e.g. giant_fridge)</label>
+    <input type="text" id="name" value="fridge">
+    
+    <label>Dimensions in Blocks (Width | Height | Depth)</label>
+    <div class="row">
+      <input type="number" id="w" value="1" min="1" max="5" onchange="updateGrid()">
+      <input type="number" id="h" value="2" min="1" max="5" onchange="updateGrid()">
+      <input type="number" id="d" value="1" min="1" max="5" onchange="updateGrid()">
+    </div>
+    
+    <label>Textures (Click to set)</label>
+    <span class="note">
+      You only NEED a Front texture. Missing sides automatically copy the Front!<br>
+      <span style="color: #FF9800; font-weight: bold;">Max image size is 512x512 pixels. Larger images will be downscaled.</span>
+    </span>
+    <div class="texture-grid">
+      <div class="tex-box" onclick="showTextureModal('top')" id="box_top">Top</div>
+      <div class="tex-box" onclick="showTextureModal('bottom')" id="box_bottom">Bottom</div>
+      <div class="tex-box" onclick="showTextureModal('front')" id="box_front" style="border-color:#2196F3; color:#2196F3;">Front (Req)</div>
+      <div class="tex-box" onclick="showTextureModal('back')" id="box_back">Back</div>
+      <div class="tex-box" onclick="showTextureModal('left')" id="box_left">Left</div>
+      <div class="tex-box" onclick="showTextureModal('right')" id="box_right">Right</div>
+    </div>
+    
+    <label>Live 3D Preview & Hitbox Editor</label>
+    <span class="note" style="color: #4CAF50; font-weight: bold;">Click and drag to rotate. Click any grid block on the model to change its hitbox!</span>
+    <div class="preview-container" id="previewContainer" style="position: relative;">
+      
+      <div id="axis-guide" style="position: absolute; bottom: 20px; left: 20px; width: 60px; height: 60px; perspective: 1000px; pointer-events: none; z-index: 20;">
+        <div id="axis-cube" style="position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transform: rotateX(-20deg) rotateY(-45deg);">
+          <div style="position: absolute; top: 50%; left: 50%; width: 35px; height: 3px; background: #f44336; transform-origin: 0 50%; transform: translate3d(0, -50%, 0);"></div>
+          <div style="position: absolute; top: 50%; left: 50%; color: #f44336; font-size: 14px; font-weight: bold; font-family: monospace; transform: translate3d(40px, -50%, 0);">X</div>
+
+          <div style="position: absolute; top: 50%; left: 50%; width: 3px; height: 35px; background: #4CAF50; transform-origin: 50% 100%; transform: translate3d(-50%, -100%, 0);"></div>
+          <div style="position: absolute; top: 50%; left: 50%; color: #4CAF50; font-size: 14px; font-weight: bold; font-family: monospace; transform: translate3d(-50%, -50px, 0);">Y</div>
+
+          <div style="position: absolute; top: 50%; left: 50%; width: 3px; height: 35px; background: #2196F3; transform-origin: 50% 0%; transform: translate3d(-50%, 0, 0) rotateX(90deg);"></div>
+          <div style="position: absolute; top: 50%; left: 50%; color: #2196F3; font-size: 14px; font-weight: bold; font-family: monospace; transform: translate3d(-50%, -5px, -40px);">Z</div>
+        </div>
+      </div>
+
+      <div class="cube" id="cube">
+        <div class="face" id="face_front">Front</div>
+        <div class="face" id="face_back">Back</div>
+        <div class="face" id="face_right">Right</div>
+        <div class="face" id="face_left">Left</div>
+        <div class="face" id="face_top">Top</div>
+        <div class="face" id="face_bottom">Bottom</div>
+        <div id="highlightCube" style="display:none; position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; width: 0; height: 0; pointer-events: none; z-index: 10;">
+          <div class="hl-face" style="transform: translate(-50%, -50%) rotateY(0deg) translateZ(calc(var(--grid-size)/2));"></div>
+          <div class="hl-face" style="transform: translate(-50%, -50%) rotateY(180deg) translateZ(calc(var(--grid-size)/2));"></div>
+          <div class="hl-face" style="transform: translate(-50%, -50%) rotateY(90deg) translateZ(calc(var(--grid-size)/2));"></div>
+          <div class="hl-face" style="transform: translate(-50%, -50%) rotateY(-90deg) translateZ(calc(var(--grid-size)/2));"></div>
+          <div class="hl-face" style="transform: translate(-50%, -50%) rotateX(90deg) translateZ(calc(var(--grid-size)/2));"></div>
+          <div class="hl-face" style="transform: translate(-50%, -50%) rotateX(-90deg) translateZ(calc(var(--grid-size)/2));"></div>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="hidden_file" style="display:none" accept="image/png, image/jpeg, image/webp">
+
+    <label>Hidden Inside Block (State 1)</label>
+    <span class="note">What block functions inside the texture (e.g. furnace, iron_block)</span>
+    <input type="text" id="hidden_block" value="furnace" list="mc-blocks">
+    
+    <label style="display: flex; align-items: center; font-weight: normal; margin-top: 10px; cursor: pointer; color: #ddd;">
+      <input type="checkbox" id="keep_original" onchange="toggleHiddenBlock()" style="width: auto; margin-right: 8px;">
+      Keep inside blocks same as original configuration
+    </label>
+    
+    <button class="btn-add" onclick="addItem()">+ Add Item To Pack</button>
+
+    <div class="card" style="margin-top: 20px; padding: 20px;">
+        <h2>Edit Block Configuration</h2>
+        <p style="font-size: 13px; color: #ccc; margin-top: -5px; margin-bottom: 15px; text-align: center;">
+            Blocks not on the surface are set to iron_blocks by default. Edit them directly in the chart below.
+        </p>
+
+        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <input type="text" id="bulk_block_input" list="mc-blocks" placeholder="minecraft:block_name" style="flex: 2;">
+            <button class="btn-gen" onclick="applyToSelected()" style="flex: 1; margin-top: 0; padding: 10px; font-size: 14px;">Apply to Selected</button>
+            <button class="btn-add" onclick="applyToAll()" style="flex: 1; margin-top: 0; padding: 10px; font-size: 14px;">Change ALL Blocks</button>
+        </div>
+
+        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #444; border-radius: 6px; background: #111;">
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                        </th>
+                        <th style="width: 120px;">Coord (X,Y,Z)</th>
+                        <th>Assigned Block</th>
+                    </tr>
+                </thead>
+                <tbody id="blockConfigTableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+  </div>
+
+  <div class="card" style="position: sticky; top: 20px;">
+    <h2>2. Ultimate Datapack</h2>
+    <p style="font-size: 14px; color: #ccc; margin-top: -10px; margin-bottom: 20px;">
+        Welcome to the world's first MULTI-BLOCK CUSTOM texture pack! This pack runs in VANILLA Minecraft, without need of any other installations. It allows the texture to appear once the system detects a certain configuration. For example, if the configuration is a 2*2*2 cube of iron blocks, then when these iron blocks are placed, your custom texture comes out! It is highly recommended to AI generate textures (suggested dimensions would be 16-64 pixels per block). Your initial picture might be horizontal, but just compress it into a square. Textures have to be in PNG format.
+    </p>
+    
+    <label>Get the Universal Toggle Wand:</label>
+    <span class="note">Run this command in-game to get your stick!<br>Toggles between texture, original blocks, and no texture (nothing)</span>
+    <input type="text" class="cmd-box" readonly value="/give @s warped_fungus_on_a_stick[custom_data={toggle_wand:1b},item_name='{&quot;text&quot;:&quot;Universal Toggle Wand&quot;,&quot;color&quot;:&quot;yellow&quot;}']" onclick="this.select()">
+    
+    <ul id="itemList">
+      <li style="color: #aaa; border:none; background:none; text-align:center;">No items added yet.</li>
+    </ul>
+    
+    <button class="btn-gen" onclick="generate()">Download Embedded .ZIP</button>
+
+    <div style="background-color: #a84638; padding: 20px; border-radius: 8px; margin-top: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+      <div style="font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 15px; color: white;">Windows Warning!</div>
+      <p style="font-size: 15px; line-height: 1.6; margin: 0; color: white; text-align: center;">
+        If you are on Windows and the unzipped folder appears empty, you may need to "unblock" the file. Right-click the downloaded <code style="background: rgba(0,0,0,0.2); padding: 2px 5px; border-radius: 3px;">.zip</code> file, go to <strong>Properties</strong>, and in the <strong>General</strong> tab, check the <strong>"Unblock"</strong> box at the bottom and click "Apply" and "OK". Then, try unzipping again.
+      </p>
+    </div>
+
+    <div style="text-align: center; margin-top: 25px;">
+      <div style="font-size: 16px; color: #eee; margin-bottom: 5px;">For any questions, tutorials, examples, please visit the official website:</div>
+      <a href="https://sites.google.com/view/custom-multi-block-texturepack/home" target="_blank" style="color: #4CAF50; font-size: 16px; text-decoration: underline;">https://sites.google.com/view/custom-multi-block-texturepack/home</a>
+    </div>
+
+  </div>
+</div>
+
+<div class="modal" id="hitboxModal">
+  <div class="card modal-content" style="max-width: 400px;">
+    <h2>Edit Hitbox Block</h2>
+    <p id="hitboxCoord">Block: (0, 0, 0)</p>
+    <input type="text" id="hitboxInput" list="mc-blocks" style="font-size: 18px; padding: 15px;">
+    <datalist id="mc-blocks"></datalist>
+    <br><br>
+    <button class="btn-gen" onclick="saveHitbox()">💾 Save Block</button>
+    <button class="btn-danger" onclick="closeHitbox()" style="margin-top:10px; width:100%;">Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="textureModal">
+  <div class="card modal-content">
+    <h2 id="modalTitle">Set Texture</h2>
+    <p>How do you want to add the texture for this side?</p>
+    <button class="btn-gen" onclick="triggerUpload()" style="width: 100%; margin-bottom: 10px;">📁 Upload Picture<br><span style="font-size:12px; font-weight:normal;">Must be square PNG/JPG</span></button>
+    <button class="btn-add" onclick="openPainter()" style="width: 100%; margin-bottom: 10px;">🖌️ Draw in Pixel Studio</button>
+    <button class="btn-danger" onclick="removeActiveTexture()" style="width: 100%; margin-bottom: 10px;">🗑️ Remove Texture</button>
+    <br>
+    <button class="btn-danger" onclick="closeModal()" style="width: 100%; background: #444;">Cancel</button>
+  </div>
+</div>
+
+<div id="pixelStudio">
+  <div class="card" style="margin:20px auto; max-width: 900px;">
+    <h2>Minecraft Pixel Studio</h2>
+    <div class="toolbar">
+      <label>Resolution (per block):</label>
+      <select id="studioSize" onchange="resizeStudioCanvas()" style="width:auto;">
+        <option value="16">16 px</option>
+        <option value="32">32 px</option>
+        <option value="64" selected>64 px</option>
+        <option value="128">128 px</option>
+        <option value="256">256 px</option>
+        <option value="512">512 px</option>
+      </select>
+
+      <label>Color:</label>
+      <input type="color" id="colorPicker" value="#4CAF50" onchange="setTool('brush')">
+      
+      <button id="btnBrush" class="tool-active" onclick="setTool('brush')" style="background:#555;">🖌️ Brush</button>
+      <button id="btnEraser" onclick="setTool('eraser')" style="background:#555;">🧹 Eraser</button>
+      <button id="btnFill" onclick="setTool('fill')" style="background:#555;">🪣 Fill</button>
+      
+      <label style="margin-left: 10px;">Size: <span id="brushSizeVal" style="color:#4CAF50;">1</span>px</label>
+      <input type="range" id="brushSize" min="1" max="25" value="1" style="width: 80px;" oninput="document.getElementById('brushSizeVal').innerText = this.value">
+      
+      <button class="btn-danger" onclick="clearStudioCanvas()">🗑️ Clear</button>
+    </div>
+
+    <div class="toolbar" style="margin-top: -5px; padding: 10px;">
+      <button class="btn-small" onclick="zoomIn()">Zoom In ➕</button>
+      <button class="btn-small" onclick="zoomOut()">Zoom Out ➖</button>
+      <button class="btn-small" onclick="resetZoom()">Reset Zoom</button>
+      <label style="margin-left: 15px;"><input type="checkbox" id="showGrid" checked onchange="updateStudioGrid()"> Show Pixel Grid</label>
+    </div>
+
+    <div class="canvas-wrapper" id="wrapper">
+      <div class="canvas-container">
+        <canvas id="studioCanvas"></canvas>
+        <div id="gridOverlay"></div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 20px; display: flex; justify-content: center; gap: 20px;">
+      <button onclick="savePaintedTexture()" class="btn-gen" style="width: auto;">💾 Save & Apply to Texture</button>
+      <button onclick="closePainter()" class="btn-danger" style="width: auto; padding: 15px;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+function toggleHiddenBlock() {
+  const cb = document.getElementById('keep_original');
+  const input = document.getElementById('hidden_block');
+  input.disabled = cb.checked;
+}
+
+// Fetch MC Blocks for autocomplete
+fetch("https://raw.githubusercontent.com/PrismarineJS/minecraft-data/master/data/pc/1.20/blocks.json")
+  .then(r => r.json())
+  .then(data => {
+      const dl = document.getElementById("mc-blocks");
+      data.forEach(b => {
+          let opt = document.createElement("option");
+          opt.value = b.name;
+          dl.appendChild(opt);
+      });
+  }).catch(e => console.log("Could not load block list", e));
+
+// --- GLOBAL APP STATE ---
+let items = [];
+let blockData = {};
+let cubeS = 40;
+let currentTextures = { front: null, back: null, left: null, right: null, top: null, bottom: null };
+let activeFace = '';
+
+// --- 3D PREVIEW LOGIC ---
+let rotX = -20, rotY = -45;
+let isDragging = false;
+let hasMoved = false;
+let prevX = 0, prevY = 0;
+
+const previewContainer = document.getElementById('previewContainer');
+const cube = document.getElementById('cube');
+const axisCube = document.getElementById('axis-cube');
+
+previewContainer.addEventListener('mousedown', e => {
+  isDragging = true;
+  hasMoved = false;
+  prevX = e.clientX;
+  prevY = e.clientY;
+});
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('mousemove', e => {
+  if(!isDragging) return;
+  hasMoved = true;
+  let deltaX = e.clientX - prevX;
+  let deltaY = e.clientY - prevY;
+  rotY += deltaX * 0.6;
+  rotX -= deltaY * 0.6;
+  if(rotX > 90) rotX = 90;
+  if(rotX < -90) rotX = -90;
+  
+  cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  axisCube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  
+  prevX = e.clientX;
+  prevY = e.clientY;
+});
+
+function updatePreviewCube() {
+  const w = parseInt(document.getElementById("w").value) || 1;
+  const h = parseInt(document.getElementById("h").value) || 1;
+  const d = parseInt(document.getElementById("d").value) || 1;
+  
+  const maxDim = Math.max(w, h, d);
+  const S = maxDim >= 3 ? 40 : 80; 
+  cubeS = S;
+  document.documentElement.style.setProperty("--grid-size", S + "px");
+  if (w > 1 || h > 1 || d > 1) {
+      cube.classList.add("show-grid");
+  } else {
+      cube.classList.remove("show-grid");
+  } 
+  
+  const w_px = w * S;
+  const h_px = h * S;
+  const d_px = d * S;
+  
+  cube.style.width = w_px + 'px';
+  cube.style.height = h_px + 'px';
+  
+  const f_front = document.getElementById('face_front');
+  f_front.style.width = w_px + 'px'; f_front.style.height = h_px + 'px';
+  f_front.style.transform = `translate(-50%, -50%) rotateY(0deg) translateZ(${d_px/2}px)`;
+  
+  const f_back = document.getElementById('face_back');
+  f_back.style.width = w_px + 'px'; f_back.style.height = h_px + 'px';
+  f_back.style.transform = `translate(-50%, -50%) rotateY(180deg) translateZ(${d_px/2}px)`;
+  
+  const f_right = document.getElementById('face_right');
+  f_right.style.width = d_px + 'px'; f_right.style.height = h_px + 'px';
+  f_right.style.transform = `translate(-50%, -50%) rotateY(90deg) translateZ(${w_px/2}px)`;
+  
+  const f_left = document.getElementById('face_left');
+  f_left.style.width = d_px + 'px'; f_left.style.height = h_px + 'px';
+  f_left.style.transform = `translate(-50%, -50%) rotateY(-90deg) translateZ(${w_px/2}px)`;
+  
+  const f_top = document.getElementById('face_top');
+  f_top.style.width = w_px + 'px'; f_top.style.height = d_px + 'px';
+  f_top.style.transform = `translate(-50%, -50%) rotateX(90deg) translateZ(${h_px/2}px)`;
+  
+  const f_bottom = document.getElementById('face_bottom');
+  f_bottom.style.width = w_px + 'px'; f_bottom.style.height = d_px + 'px';
+  f_bottom.style.transform = `translate(-50%, -50%) rotateX(-90deg) translateZ(${h_px/2}px)`;
+}
+
+// --- TEXTURE MODAL LOGIC ---
+function showTextureModal(face) {
+  activeFace = face;
+  document.getElementById('modalTitle').innerText = "Set " + face.charAt(0).toUpperCase() + face.slice(1) + " Texture";
+  document.getElementById('textureModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('textureModal').style.display = 'none';
+}
+
+function triggerUpload() {
+  document.getElementById('hidden_file').click();
+  closeModal();
+}
+
+function removeActiveTexture() {
+    currentTextures[activeFace] = null;
+    let b = document.getElementById(`box_${activeFace}`);
+    b.style.backgroundImage = 'none';
+    b.innerText = activeFace === 'front' ? 'Front (Req)' : activeFace.charAt(0).toUpperCase() + activeFace.slice(1);
+    
+    updateAllFaces();
+    closeModal();
+}
+
+document.getElementById('hidden_file').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  
+  if (file.type !== "image/png" && file.type !== "image/jpeg") {
+      alert("WARNING: The picture is not the right file type (must be PNG or JPG). It will not load in Minecraft!");
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const dataUrl = event.target.result;
+    
+    let tempImg = new Image();
+    tempImg.onload = function() {
+        if (tempImg.width !== tempImg.height) {
+            alert("WARNING: The picture is not a perfect square. Applying missing texture indicator.");
+            
+            let c = document.createElement('canvas');
+            c.width = 16; c.height = 16;
+            let ctx = c.getContext('2d');
+            ctx.fillStyle = '#f800f8';
+            ctx.fillRect(0, 0, 8, 8);
+            ctx.fillRect(8, 8, 8, 8);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(8, 0, 8, 8);
+            ctx.fillRect(0, 8, 8, 8);
+            
+            applyTextureToFace(c.toDataURL('image/png'));
+        } else {
+            applyTextureToFace(dataUrl);
+        }
+    };
+    tempImg.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+});
+
+function applyTextureToFace(dataUrl) {
+  currentTextures[activeFace] = dataUrl;
+  document.getElementById(`box_${activeFace}`).style.backgroundImage = `url(${dataUrl})`;
+  document.getElementById(`box_${activeFace}`).innerText = '';
+  
+  updateAllFaces();
+}
+
+function updateAllFaces() {
+    const faces = ["front", "back", "left", "right", "top", "bottom"];
+    const frontTexture = currentTextures.front;
+
+    faces.forEach(faceName => {
+        const faceElement = document.getElementById(`face_${faceName}`);
+        const texture = currentTextures[faceName] || frontTexture;
+        if (texture) {
+            faceElement.style.backgroundImage = `url(${texture})`;
+            faceElement.innerText = "";
+        } else {
+            faceElement.style.backgroundImage = "none";
+            faceElement.innerText = faceName.charAt(0).toUpperCase() + faceName.slice(1);
+        }
+    });
+}
+
+// --- PIXEL STUDIO LOGIC ---
+const sCanvas = document.getElementById("studioCanvas");
+const sCtx = sCanvas.getContext("2d");
+const gridOverlay = document.getElementById("gridOverlay");
+let isDrawingPaint = false;
+let currentTool = 'brush'; 
+let currentZoom = 1.0;
+const defaultCSSSize = 512;
+
+function openPainter() {
+  closeModal();
+  document.getElementById('pixelStudio').style.display = 'block';
+  resizeStudioCanvas();
+}
+
+function closePainter() {
+  document.getElementById('pixelStudio').style.display = 'none';
+}
+
+function savePaintedTexture() {
+  const maxDim = Math.max(sCanvas.width, sCanvas.height);
+  const sqCanvas = document.createElement("canvas");
+  sqCanvas.width = maxDim;
+  sqCanvas.height = maxDim;
+  const sqCtx = sqCanvas.getContext("2d");
+  
+  sqCtx.drawImage(sCanvas, 0, 0, sCanvas.width, sCanvas.height, 0, 0, maxDim, maxDim);
+  
+  applyTextureToFace(sqCanvas.toDataURL("image/png"));
+  closePainter();
+}
+
+function setTool(tool) {
+  currentTool = tool;
+  document.getElementById('btnBrush').classList.remove('tool-active');
+  document.getElementById('btnEraser').classList.remove('tool-active');
+  document.getElementById('btnFill').classList.remove('tool-active');
+  
+  if(tool === 'brush') document.getElementById('btnBrush').classList.add('tool-active');
+  if(tool === 'eraser') document.getElementById('btnEraser').classList.add('tool-active');
+  if(tool === 'fill') document.getElementById('btnFill').classList.add('tool-active');
+}
+
+function resizeStudioCanvas() {
+  const baseSize = parseInt(document.getElementById("studioSize").value);
+  const w = parseInt(document.getElementById("w").value) || 1;
+  const h = parseInt(document.getElementById("h").value) || 1;
+  const d = parseInt(document.getElementById("d").value) || 1;
+  
+  let faceW = 1, faceH = 1;
+  if(activeFace === 'front' || activeFace === 'back') { faceW = w; faceH = h; }
+  else if(activeFace === 'left' || activeFace === 'right') { faceW = d; faceH = h; }
+  else if(activeFace === 'top' || activeFace === 'bottom') { faceW = w; faceH = d; }
+  
+  const newWidth = baseSize * faceW;
+  const newHeight = baseSize * faceH;
+  
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = sCanvas.width || newWidth;
+  tempCanvas.height = sCanvas.height || newHeight;
+  tempCanvas.getContext('2d').drawImage(sCanvas, 0, 0);
+  
+  sCanvas.width = newWidth;
+  sCanvas.height = newHeight;
+  sCtx.drawImage(tempCanvas, 0, 0);
+  resetZoom();
+}
+
+function applyZoom() {
+  const maxDim = Math.max(sCanvas.width, sCanvas.height);
+  const scale = defaultCSSSize / maxDim;
+  sCanvas.style.width = (sCanvas.width * scale * currentZoom) + 'px';
+  sCanvas.style.height = (sCanvas.height * scale * currentZoom) + 'px';
+  updateStudioGrid();
+}
+
+function zoomIn() { currentZoom *= 1.5; applyZoom(); }
+function zoomOut() { currentZoom /= 1.5; applyZoom(); }
+function resetZoom() { currentZoom = 1.0; applyZoom(); }
+
+function updateStudioGrid() {
+  const show = document.getElementById("showGrid").checked;
+  const pixelCSSSize = (defaultCSSSize * currentZoom) / sCanvas.width;
+  
+  if (show && pixelCSSSize >= 2) {
+    gridOverlay.style.display = "block";
+    gridOverlay.style.backgroundSize = `${pixelCSSSize}px ${pixelCSSSize}px`;
+  } else {
+    gridOverlay.style.display = "none";
+  }
+}
+
+function clearStudioCanvas() {
+  if(confirm("Are you sure you want to wipe the canvas?")) {
+    sCtx.clearRect(0, 0, sCanvas.width, sCanvas.height);
+  }
+}
+
+function getPixelPos(e) {
+  const rect = sCanvas.getBoundingClientRect();
+  const scaleX = sCanvas.width / rect.width;
+  const scaleY = sCanvas.height / rect.height;
+  const x = Math.floor((e.clientX - rect.left) * scaleX);
+  const y = Math.floor((e.clientY - rect.top) * scaleY);
+  return { x, y };
+}
+
+function drawPixel(x, y) {
+  if (x < 0 || x >= sCanvas.width || y < 0 || y >= sCanvas.height) return;
+  const size = parseInt(document.getElementById("brushSize").value) || 1;
+  const offset = Math.floor(size / 2);
+  const drawX = x - offset + (size % 2 === 0 ? 1 : 0);
+  const drawY = y - offset + (size % 2 === 0 ? 1 : 0);
+  
+  if (currentTool === 'eraser') {
+    sCtx.clearRect(drawX, drawY, size, size);
+  } else if (currentTool === 'brush') {
+    sCtx.fillStyle = document.getElementById("colorPicker").value;
+    sCtx.fillRect(drawX, drawY, size, size);
+  } else if (currentTool === 'fill') {
+    floodFill(x, y, document.getElementById("colorPicker").value);
+  }
+}
+
+function floodFill(startX, startY, hexColor) {
+  const imageData = sCtx.getImageData(0, 0, sCanvas.width, sCanvas.height);
+  const data = imageData.data;
+  const w = sCanvas.width;
+  const h = sCanvas.height;
+  
+  const fillR = parseInt(hexColor.slice(1,3), 16);
+  const fillG = parseInt(hexColor.slice(3,5), 16);
+  const fillB = parseInt(hexColor.slice(5,7), 16);
+  const fillA = 255;
+  
+  const targetIdx = (startY * w + startX) * 4;
+  const tr = data[targetIdx];
+  const tg = data[targetIdx + 1];
+  const tb = data[targetIdx + 2];
+  const ta = data[targetIdx + 3];
+  
+  if (tr === fillR && tg === fillG && tb === fillB && ta === fillA) return;
+  
+  let queue = [[startX, startY]];
+  while(queue.length > 0) {
+    const [x, y] = queue.shift();
+    const idx = (y * w + x) * 4;
+    data[idx] = fillR; data[idx+1] = fillG; data[idx+2] = fillB; data[idx+3] = fillA;
+    
+    const neighbors = [[x+1, y], [x-1, y], [x, y+1], [x, y-1]];
+    for(let [nx, ny] of neighbors) {
+      if(nx >= 0 && nx < w && ny >= 0 && ny < h) {
+        const nIdx = (ny * w + nx) * 4;
+        if(data[nIdx] === tr && data[nIdx+1] === tg && data[nIdx+2] === tb && data[nIdx+3] === ta) {
+           data[nIdx] = fillR; data[nIdx+1] = fillG; data[nIdx+2] = fillB; data[nIdx+3] = fillA;
+           queue.push([nx, ny]);
+        }
+      }
+    }
+  }
+  sCtx.putImageData(imageData, 0, 0);
+}
+
+sCanvas.addEventListener('mousedown', e => {
+  isDrawingPaint = true;
+  const { x, y } = getPixelPos(e);
+  drawPixel(x, y);
+});
+
+sCanvas.addEventListener('mousemove', e => {
+  if(!isDrawingPaint || currentTool === 'fill') return; 
+  const { x, y } = getPixelPos(e);
+  drawPixel(x, y);
+});
+
+window.addEventListener('mouseup', () => isDrawingPaint = false);
+sCanvas.addEventListener('mouseleave', () => isDrawingPaint = false);
+
+
+// --- GRID AND ITEM GENERATION LOGIC ---
+
+function renderBlockTable() {
+    const w = parseInt(document.getElementById("w").value) || 1;
+    const h = parseInt(document.getElementById("h").value) || 1;
+    const d = parseInt(document.getElementById("d").value) || 1;
+    const tbody = document.getElementById("blockConfigTableBody");
+    tbody.innerHTML = "";
+
+    for(let y=0; y<h; y++){
+        for(let z=0; z<d; z++){
+            for(let x=0; x<w; x++){
+                let key = `${x}_${y}_${z}`;
+                let val = blockData[key] || "iron_block";
+                
+                let tr = document.createElement("tr");
+                
+                let tdCheck = document.createElement("td");
+                tdCheck.style.textAlign = "center";
+                let cb = document.createElement("input");
+                cb.type = "checkbox";
+                cb.className = "row-checkbox";
+                cb.value = key;
+                tdCheck.appendChild(cb);
+                
+                let tdCoord = document.createElement("td");
+                tdCoord.innerText = `(${x}, ${y}, ${z})`;
+                
+                let tdInput = document.createElement("td");
+                let inp = document.createElement("input");
+                inp.type = "text";
+                inp.value = val;
+                inp.setAttribute("list", "mc-blocks");
+                inp.onchange = function() {
+                    blockData[key] = this.value.trim().toLowerCase() || "iron_block";
+                };
+                tdInput.appendChild(inp);
+                
+                tr.appendChild(tdCheck);
+                tr.appendChild(tdCoord);
+                tr.appendChild(tdInput);
+                tbody.appendChild(tr);
+            }
+        }
+    }
+}
+
+function toggleSelectAll() {
+    const master = document.getElementById("selectAllCheckbox").checked;
+    const cbs = document.querySelectorAll(".row-checkbox");
+    cbs.forEach(cb => cb.checked = master);
+}
+
+function applyToSelected() {
+    const newVal = document.getElementById("bulk_block_input").value.trim().toLowerCase();
+    if (!newVal) return alert("Please enter a block name to apply.");
+    const cbs = document.querySelectorAll(".row-checkbox:checked");
+    if(cbs.length === 0) return alert("No blocks selected in the chart.");
+    
+    cbs.forEach(cb => {
+        blockData[cb.value] = newVal;
+    });
+    
+    document.getElementById("selectAllCheckbox").checked = false;
+    renderBlockTable();
+}
+
+function applyToAll() {
+    const newVal = document.getElementById("bulk_block_input").value.trim().toLowerCase();
+    if (!newVal) return alert("Please enter a block name in the text field to apply to ALL blocks.");
+    
+    const w = parseInt(document.getElementById("w").value) || 1;
+    const h = parseInt(document.getElementById("h").value) || 1;
+    const d = parseInt(document.getElementById("d").value) || 1;
+    
+    for(let y=0; y<h; y++){
+        for(let z=0; z<d; z++){
+            for(let x=0; x<w; x++){
+                blockData[`${x}_${y}_${z}`] = newVal;
+            }
+        }
+    }
+    renderBlockTable();
+}
+
+function updateGrid() {
+  const w = parseInt(document.getElementById("w").value) || 1;
+  const h = parseInt(document.getElementById("h").value) || 1;
+  const d = parseInt(document.getElementById("d").value) || 1;
+  
+  for(let y=0; y<h; y++){
+      for(let z=0; z<d; z++){
+          for(let x=0; x<w; x++){
+              let key = `${x}_${y}_${z}`;
+              if(!blockData[key]) blockData[key] = "iron_block";
+          }
+      }
+  }
+  updatePreviewCube();
+  renderBlockTable(); 
+}
+
+window.onload = updateGrid;
+
+let currentHitboxKey = null;
+
+function openHitboxModal(x, y, z, block, key) {
+    currentHitboxKey = key;
+    document.getElementById("hitboxCoord").innerText = `Setting block for Coordinate: (${x}, ${y}, ${z})`;
+    document.getElementById("hitboxInput").value = block;
+    document.getElementById("hitboxModal").style.display = "flex";
+    document.getElementById("hitboxInput").focus();
+}
+
+function closeHitbox() {
+    document.getElementById("hitboxModal").style.display = "none";
+}
+
+function saveHitbox() {
+    const val = document.getElementById("hitboxInput").value.trim().toLowerCase();
+    if(val) {
+        blockData[currentHitboxKey] = val;
+    }
+    closeHitbox();
+    renderBlockTable(); 
+}
+
+
+document.querySelectorAll('.face').forEach(face => {
+  const w = () => parseInt(document.getElementById("w").value) || 1;
+  const h = () => parseInt(document.getElementById("h").value) || 1;
+  const d = () => parseInt(document.getElementById("d").value) || 1;
+  const highlightCube = document.getElementById('highlightCube');
+
+  face.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+        highlightCube.style.display = 'none';
+        return;
+    }
+
+    const S = cubeS;
+    if (S <= 0) return;
+
+    let cx = Math.floor(e.offsetX / S);
+    let cy = Math.floor(e.offsetY / S);
+    let x=0, y=0, z=0;
+    
+    const faceId = face.id;
+    const currentW = w(), currentH = h(), currentD = d();
+
+    if(faceId === "face_front") { x = cx; y = (currentH - 1) - cy; z = currentD - 1; }
+    else if(faceId === "face_back") { x = (currentW - 1) - cx; y = (currentH - 1) - cy; z = 0; }
+    else if(faceId === "face_right") { z = (currentD - 1) - cx; y = (currentH - 1) - cy; x = currentW - 1; }
+    else if(faceId === "face_left") { z = cx; y = (currentH - 1) - cy; x = 0; }
+    else if(faceId === "face_top") { x = cx; z = cy; y = currentH - 1; }
+    else if(faceId === "face_bottom") { x = cx; z = (currentD - 1) - cy; y = 0; }
+
+    if(x<0||x>=currentW || y<0||y>=currentH || z<0||z>=currentD) {
+        highlightCube.style.display = 'none';
+        return;
+    }
+
+    let tx = (x + 0.5 - currentW/2) * S;
+    let ty = -(y + 0.5 - currentH/2) * S;
+    let tz = (z + 0.5 - currentD/2) * S;
+
+    highlightCube.style.transform = `translate3d(${tx}px, ${ty}px, ${tz}px)`;
+    highlightCube.style.display = 'block';
+  });
+
+  face.addEventListener('mouseout', (e) => {
+    highlightCube.style.display = 'none';
+  });
+
+  face.addEventListener('click', (e) => {
+    if (hasMoved) return; 
+    
+    const S = cubeS;
+    let cx = Math.floor(e.offsetX / S);
+    let cy = Math.floor(e.offsetY / S);
+    let x=0, y=0, z=0;
+    const faceId = face.id;
+    
+    const currentW = w(), currentH = h(), currentD = d();
+
+    if(faceId === "face_front") { x = cx; y = (currentH - 1) - cy; z = currentD - 1; }
+    else if(faceId === "face_back") { x = (currentW - 1) - cx; y = (currentH - 1) - cy; z = 0; }
+    else if(faceId === "face_right") { z = (currentD - 1) - cx; y = (currentH - 1) - cy; x = currentW - 1; }
+    else if(faceId === "face_left") { z = cx; y = (currentH - 1) - cy; x = 0; }
+    else if(faceId === "face_top") { x = cx; z = cy; y = currentH - 1; }
+    else if(faceId === "face_bottom") { x = cx; z = (currentD - 1) - cy; y = 0; }
+    
+    if(x<0||x>=currentW || y<0||y>=currentH || z<0||z>=currentD) return;
+    
+    const key = `${x}_${y}_${z}`;
+    let currentBlock = blockData[key] || "iron_block";
+    
+    openHitboxModal(x, y, z, currentBlock, key);
+  });
+});
+
+
+function addItem() {
+  const name = document.getElementById("name").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const w = parseInt(document.getElementById("w").value) || 1;
+  const h = parseInt(document.getElementById("h").value) || 1;
+  const d = parseInt(document.getElementById("d").value) || 1;
+  const hidden_block = document.getElementById("hidden_block").value.trim().toLowerCase();
+  const keepOriginal = document.getElementById("keep_original").checked;
+  
+  if (!name || w < 1 || h < 1 || d < 1 || (!hidden_block && !keepOriginal)) {
+      alert("Please fill out all fields correctly!");
+      return;
+  }
+  if (items.find(i => i.name === name)) {
+      alert("An item with this name is already in the pack!");
+      return;
+  }
+  if (!currentTextures.front) {
+      alert("You must provide at least a 'Front' texture!");
+      return;
+  }
+  
+  let blocks = [];
+  for(let x=0; x<w; x++){
+    for(let y=0; y<h; y++){
+      for(let z=0; z<d; z++){
+        let key = `${x}_${y}_${z}`;
+        let val = blockData[key] || "iron_block";
+        blocks.push({ x, y, z, block: val });
+      }
+    }
+  }
+  
+  items.push({ name, w, h, d, blocks, hidden_block, keepOriginal, textures: {...currentTextures} });
+  renderList();
+  
+  document.getElementById("name").value = "";
+  currentTextures = { front: null, back: null, left: null, right: null, top: null, bottom: null };
+  ['front','back','left','right','top','bottom'].forEach(f => {
+      let b = document.getElementById(`box_${f}`);
+      b.style.backgroundImage = 'none';
+      b.innerText = f === 'front' ? 'Front (Req)' : f.charAt(0).toUpperCase() + f.slice(1);
+      let fc = document.getElementById(`face_${f}`);
+      fc.style.backgroundImage = 'none';
+      fc.innerText = f.charAt(0).toUpperCase() + f.slice(1);
+  });
+}
+
+function removeItem(index) {
+  items.splice(index, 1);
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById("itemList");
+  list.innerHTML = "";
+  if (items.length === 0) {
+      list.innerHTML = '<li style="color: #aaa; border:none; background:none; text-align:center;">No items added yet.</li>';
+      return;
+  }
+  items.forEach((item, index) => {
+      let thumb = `<img src="${item.textures.front}" style="width:40px; height:40px; object-fit:contain; margin-right:15px; border-radius:4px; background:#000;">`;
+      let hiddenStatus = item.keepOriginal ? 'Original Configuration' : item.hidden_block;
+      list.innerHTML += `<li>
+        <div style="display:flex; align-items:center;">
+          ${thumb}
+          <span><b style="font-size: 18px; color:#2196F3;">${item.name}</b> (${item.w}x${item.h}x${item.d})<br>
+          <span style="font-size:12px; color:#aaa;">Hidden inside: ${hiddenStatus}</span></span>
+        </div>
+        <button class="remove-btn" onclick="removeItem(${index})">✕</button>
+      </li>`;
+  });
+}
+
+function generate() {
+  if (items.length === 0) {
+      alert("Please add at least one item to the pack first!");
+      return;
+  }
+  
+  items.sort((a, b) => b.blocks.length - a.blocks.length);
+  
+  const zip = new JSZip();
+  const namespace = "multiblock_textures";
+  
+  const datapackName = "Custom Multi-Block Texture Datapack";
+  const resourcepackName = "Custom Multi-Block Texture Resource Pack";
+  
+  let routerLines = [];
+  let scannerLines = [];
+  
+  for(let px = -2; px <= 2; px++) {
+      for(let py = -2; py <= 2; py++) {
+          for(let pz = -2; pz <= 2; pz++) {
+              let pos_x = px !== 0 ? `~${px}` : `~`;
+              let pos_y = py !== 0 ? `~${py}` : `~`;
+              let pos_z = pz !== 0 ? `~${pz}` : `~`;
+              
+              items.forEach(item => {
+                  let condition = `execute positioned ${pos_x} ${pos_y} ${pos_z}`;
+                  item.blocks.forEach(b => {
+                      let bx = b.x !== 0 ? `~${b.x}` : `~`;
+                      let by = b.y !== 0 ? `~${b.y}` : `~`;
+                      let bz = b.z !== 0 ? `~${b.z}` : `~`;
+                      condition += ` if block ${bx} ${by} ${bz} ${b.block}`;
+                  });
+                  condition += ` run function ${namespace}:replace_${item.name}`;
+                  scannerLines.push(condition);
+              });
+          }
+      }
+  }
+  zip.file(`${datapackName}/data/${namespace}/function/scan_around.mcfunction`, scannerLines.join('\n'));
+  
+  const load_json = `{\n  "values": [\n    "${namespace}:load"\n  ]\n}`;
+  const tick_json = `{\n  "values": [\n    "${namespace}:tick"\n  ]\n}`;
+  zip.file(`${datapackName}/data/minecraft/tags/function/load.json`, load_json);
+  zip.file(`${datapackName}/data/minecraft/tags/function/tick.json`, tick_json);
+  
+  const load_mc = `scoreboard objectives add wand_click minecraft.used:minecraft.warped_fungus_on_a_stick\ntellraw @a {"text":"[Multi-Block Textures] Datapack Loaded!","color":"green"}`;
+  
+  const tick_mc = `execute as @a at @s run function ${namespace}:scan_around\n\nexecute as @a[scores={wand_click=1..}] at @s if items entity @s weapon.mainhand warped_fungus_on_a_stick[custom_data~{toggle_wand:1b}] as @e[type=item_display,tag=multiblock,distance=..5,sort=nearest,limit=1] run function ${namespace}:toggle_router\nscoreboard players reset @a wand_click`;
+  
+  zip.file(`${datapackName}/data/${namespace}/function/load.mcfunction`, load_mc);
+  zip.file(`${datapackName}/data/${namespace}/function/tick.mcfunction`, tick_mc);
+  
+  let format_coord = (val) => val === 0 ? `~` : `~${val}`;
+  
+  items.forEach(item => {
+      const {name, w, h, d, blocks, hidden_block, keepOriginal, textures} = item;
+      
+      const scale_x = (w + 0.002).toFixed(3);
+      const scale_y = (h + 0.002).toFixed(3);
+      const scale_z = (d + 0.002).toFixed(3);
+      
+      const spawn_x = (w / 2.0).toFixed(3);
+      const spawn_z = (d / 2.0).toFixed(3);
+      const trans_y = ((h / 2.0) + 0.001).toFixed(3);
+      
+      const offset_x = Math.floor(w / 2.0);
+      const offset_z = Math.floor(d / 2.0);
+      
+      // Auto-fallback missing textures to front
+      const hasBack = !!textures.back;
+      const hasLeft = !!textures.left;
+      const hasRight = !!textures.right;
+      const hasTop = !!textures.top;
+      const hasBot = !!textures.bottom;
+      
+      zip.file(`${resourcepackName}/assets/${namespace}/textures/item/${name}_images/${name}_front.png`, textures.front.split(',')[1], {base64:true});
+      if(hasBack) zip.file(`${resourcepackName}/assets/${namespace}/textures/item/${name}_images/${name}_back.png`, textures.back.split(',')[1], {base64:true});
+      if(hasLeft) zip.file(`${resourcepackName}/assets/${namespace}/textures/item/${name}_images/${name}_left.png`, textures.left.split(',')[1], {base64:true});
+      if(hasRight) zip.file(`${resourcepackName}/assets/${namespace}/textures/item/${name}_images/${name}_right.png`, textures.right.split(',')[1], {base64:true});
+      if(hasTop) zip.file(`${resourcepackName}/assets/${namespace}/textures/item/${name}_images/${name}_top.png`, textures.top.split(',')[1], {base64:true});
+      if(hasBot) zip.file(`${resourcepackName}/assets/${namespace}/textures/item/${name}_images/${name}_bottom.png`, textures.bottom.split(',')[1], {base64:true});
+      
+      const t_f = `"${namespace}:item/${name}_images/${name}_front"`;
+      const t_b = hasBack ? `"${namespace}:item/${name}_images/${name}_back"` : t_f;
+      const t_l = hasLeft ? `"${namespace}:item/${name}_images/${name}_left"` : t_f;
+      const t_r = hasRight ? `"${namespace}:item/${name}_images/${name}_right"` : t_f;
+      const t_t = hasTop ? `"${namespace}:item/${name}_images/${name}_top"` : t_f;
+      const t_d = hasBot ? `"${namespace}:item/${name}_images/${name}_bottom"` : t_f;
+      
+      const tex_json = `"particle": ${t_f}, "north": ${t_f}, "south": ${t_b}, "east": ${t_r}, "west": ${t_l}, "up": ${t_t}, "down": ${t_d}`;
+      
+      const model_json = `{\n  "parent": "minecraft:block/cube",\n  "textures": {\n    ${tex_json}\n  },\n  "display": {\n    "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]}\n  }\n}`;
+      const item_json = `{\n  "model": {"type": "minecraft:model", "model": "${namespace}:item/${name}"}\n}`;
+      
+      let setblocks_hidden = blocks.map(b => `setblock ${format_coord(b.x)} ${format_coord(b.y)} ${format_coord(b.z)} ${keepOriginal ? b.block : hidden_block}`).join('\n');
+      
+      let spawner = `execute align xyz positioned ~${spawn_x} ~ ~${spawn_z} if entity @e[type=item_display,tag=${name},distance=..0.1,limit=1] run return fail\n\n${setblocks_hidden}\nexecute align xyz positioned ~${spawn_x} ~ ~${spawn_z} run summon item_display ~ ~ ~ {Tags:["${name}", "multiblock"],brightness:{sky:15,block:15},item_display:"fixed",transformation:{scale:[${scale_x}f, ${scale_y}f, ${scale_z}f],translation:[0.0f, ${trans_y}f, 0.0f],left_rotation:[0.0f, 0.0f, 0.0f, 1.0f],right_rotation:[0.0f, 0.0f, 0.0f, 1.0f]},item:{id:"minecraft:paper",count:1,components:{"minecraft:item_model":"${namespace}:${name}"}}}\nplaysound block.wood.place block @a ~ ~ ~ 1 1`;
+      
+      let air_blocks = blocks.map(b => `execute as @s[tag=goto_hidden] at @s run setblock ${format_coord(b.x - offset_x)} ${format_coord(b.y)} ${format_coord(b.z - offset_z)} air`).join('\n');
+      let hidden_blocks_cmd = blocks.map(b => `execute as @s[tag=goto_textured] at @s run setblock ${format_coord(b.x - offset_x)} ${format_coord(b.y)} ${format_coord(b.z - offset_z)} ${keepOriginal ? b.block : hidden_block}`).join('\n');
+      let orig_blocks_cmd = blocks.map(b => `execute as @s[tag=goto_orig] at @s run setblock ${format_coord(b.x - offset_x)} ${format_coord(b.y)} ${format_coord(b.z - offset_z)} ${b.block}`).join('\n');
+      
+      let toggle = `# State Router\nexecute as @s[tag=!state_hidden,tag=!state_orig] run tag @s add goto_hidden\nexecute as @s[tag=state_hidden] run tag @s add goto_orig\nexecute as @s[tag=state_orig] run tag @s add goto_textured\n\n# 1 -> 2: Hide Texture and Remove Blocks\n${air_blocks}\nexecute as @s[tag=goto_hidden] run data modify entity @s transformation.scale set value [0.0f, 0.0f, 0.0f]\nexecute as @s[tag=goto_hidden] run tag @s add state_hidden\nexecute as @s[tag=goto_hidden] run tag @s remove goto_hidden\n\n# 2 -> 3: Original Blocks Mode\n${orig_blocks_cmd}\nexecute as @s[tag=goto_orig] run tag @s remove state_hidden\nexecute as @s[tag=goto_orig] run tag @s add state_orig\nexecute as @s[tag=goto_orig] run tag @s remove goto_orig\n\n# 3 -> 1: Show Texture and Restore Inside Block\n${hidden_blocks_cmd}\nexecute as @s[tag=goto_textured] run data modify entity @s transformation.scale set value [${scale_x}f, ${scale_y}f, ${scale_z}f]\nexecute as @s[tag=goto_textured] run tag @s remove state_orig\nexecute as @s[tag=goto_textured] run tag @s remove goto_textured`;
+      
+      zip.file(`${resourcepackName}/assets/${namespace}/models/item/${name}.json`, model_json);
+      zip.file(`${resourcepackName}/assets/${namespace}/items/${name}.json`, item_json);
+      zip.file(`${datapackName}/data/${namespace}/function/replace_${name}.mcfunction`, spawner);
+      zip.file(`${datapackName}/data/${namespace}/function/toggle_${name}.mcfunction`, toggle);
+      
+      routerLines.push(`execute if entity @s[tag=${name}] run function ${namespace}:toggle_${name}`);
+  });
+  
+  zip.file(`${datapackName}/data/${namespace}/function/toggle_router.mcfunction`, routerLines.join('\n'));
+  
+  let setup_guide = `UNIVERSAL WAND SETUP GUIDE\n==========================\n\n1. Put the Datapack and Resourcepack folders into your world.\n2. Type /reload in Minecraft.\n3. Get the Universal Toggle Wand by typing:\n/give @s warped_fungus_on_a_stick[custom_data={toggle_wand:1b},item_name='{"text":"Universal Toggle Wand","color":"yellow"}']\n\nHOW TO USE THE WAND:\n- Stand within 5 blocks of your item and Right-Click the wand. It will ALWAYS reliably grab the absolute closest one!\n- If your multi-block structure contains an interactive block (like a Furnace or Chest), Right-Clicking it normally will open the Furnace UI. You MUST hold **SHIFT** (Sneak) and Right-Click to swing the wand without opening the menu!\n`;
+  zip.file(`SETUP_GUIDE.txt`, setup_guide);
+  
+  zip.file(`${datapackName}/pack.mcmeta`, `{"pack":{"pack_format":48,"description":"multiblock_custom_texture_pack"}}`);
+  zip.file(`${resourcepackName}/pack.mcmeta`, `{"pack":{"pack_format":34,"description":"multiblock_custom_texture_pack"}}`);
+  
+  zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE", 
+      compressionOptions: { level: 6 } 
+  }).then(function(content) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = `multiblock_custom_texture_pack.zip`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+  });
+}
+</script>
+</body>
+</html>
